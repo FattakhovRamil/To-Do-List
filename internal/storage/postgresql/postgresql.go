@@ -24,7 +24,7 @@ func New(storagePath string) (*Storage, error) {
 	// connStr := fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=disable", dbHost, dbPort, dbUser, dbName, dbPassword)
 	// db, err := sql.Open("postgres", connStr)
 
-	db, err := sql.Open("postgres", "user=postgres dbname=postgres sslmode=disable")
+	db, err := sql.Open("postgres", "user=postgrest dbname=db password=postgrest sslmode=disable")
 
 	if err != nil {
 		return nil, fmt.Errorf("ошибка подключения к БД: %w", err)
@@ -56,30 +56,23 @@ func New(storagePath string) (*Storage, error) {
 
 }
 
-func (s *Storage) SaveTask(task *task.Task) error {
-	const op = "storage.postgresql.SaveTask"
+func (s *Storage) InsertTaskRecord(task *task.Task) (*task.Task, error) {
+	const op = "storage.postgresql.InsertTaskRecord"
 
 	query := "INSERT INTO tasks (title, description, due_date) VALUES ($1, $2, $3) RETURNING id"
 	err := s.db.QueryRow(query, task.Title, task.Description, task.DueDate).Scan(&task.ID)
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-	return nil
+	return s.QueryTaskByID(task.ID)
 }
 
-//{  Post должен вернуть ответ
-// "id": "int",
-// "title": "string",
-// "description": "string",
-// "due_date": "string (RFC3339 format)",
-// "created_at": "string (RFC3339 format)", "updated_at": "string (RFC3339 format)" }
+func (s *Storage) QueryTaskByID(id int) (*task.Task, error) {
+	const op = "storage.postgresql.QueryTaskByID"
 
-func (s *Storage) GetTask(id int) (*task.Task, error) {
-	const op = "storage.postgresql.GetTask"
-
-	getTask := &task.Task{}
+	task := &task.Task{}
 	query := `SELECT * FROM tasks WHERE id=$1`
-	err := s.db.QueryRow(query, id).Scan(&getTask.ID, &getTask.Title, &getTask.Description, &getTask.DueDate, &getTask.CreatedAt, &getTask.UpdatedAt)
+	err := s.db.QueryRow(query, id).Scan(&task.ID, &task.Title, &task.Description, &task.DueDate, &task.CreatedAt, &task.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("%s: task with ID %d not found", op, id)
@@ -89,10 +82,83 @@ func (s *Storage) GetTask(id int) (*task.Task, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return getTask, nil
+	return task, nil
+
+}
+
+func (s *Storage) QueryTasksAll() ([]task.Task, error) {
+	const op = "storage.postgresql.QueryTasksAll"
+
+	allTasks := []task.Task{}
+
+	query := `SELECT id, title, description, due_date, created_at, updated_at FROM tasks`
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var task task.Task
+		err = rows.Scan(&task.ID, &task.Title, &task.Description, &task.DueDate, &task.CreatedAt, &task.UpdatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+		allTasks = append(allTasks, task)
+	}
+
+	// Проверка на ошибки после завершения обработки строк.
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return allTasks, nil
 
 }
 
 func (s *Storage) Close() error {
 	return s.db.Close()
 }
+
+func (s *Storage) UpdateTaskRecord(taskUpdate task.Task) error {
+	const op = "storage.postgresql.UpdateTaskRecordByID"
+	query := `UPDATE tasks SET title=$1, description=$2, due_date=$3 WHERE id=$4`
+	result, err := s.db.Exec(query, taskUpdate.Title, taskUpdate.Description, taskUpdate.DueDate, taskUpdate.ID)
+	fmt.Printf("Executing query: %s with ID=%d, Title=%s, Description=%s, DueDate=%s\n", query, taskUpdate.ID, taskUpdate.Title, taskUpdate.Description, taskUpdate.DueDate)
+
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("%s: task with ID %d not found", op, taskUpdate.ID)
+	}
+	return nil
+}
+
+func (s *Storage) DeleteTaskRecordByID(id int) error {
+	const op = "storage.postgresql.DeleteTaskRecordByID"
+	query := `DELETE FROM tasks WHERE id=$1`
+	result, err := s.db.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("%s: task with ID %d not found", op, id)
+	}
+
+	return nil
+}
+
+//DeleteTaskRecordByID(id int)

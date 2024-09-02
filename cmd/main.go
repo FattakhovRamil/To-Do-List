@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"time"
@@ -31,19 +32,58 @@ func main() {
 		log.Error("failed to init storage", sl.Err(err))
 		os.Exit(1)
 	}
-	task := &task.Task{
-		Title:       "Любой заголовок",
-		Description: "Описание задачи",
+	taska := &task.Task{
+		Title:       "Любой заголовок3",
+		Description: "Описание задачи3",
 		DueDate:     time.Now(),
 	}
 
-	err = storage.SaveTask(task)
+	tas, err := storage.InsertTaskRecord(taska)
+
+	println(tas.ID)
+
+	if err != nil {
+		log.Error("failed to InsertTaskRecord", sl.Err(err))
+		os.Exit(1)
+	}
+
+	tasks, err := storage.QueryTasksAll()
 
 	if err != nil {
 		log.Error("failed to SaveTask", sl.Err(err))
 		os.Exit(1)
 	}
 
+	for _, v := range tasks {
+		fmt.Println(v)
+	}
+	taskk, err := storage.QueryTaskByID(2)
+
+	fmt.Println(*taskk)
+	if err != nil {
+		log.Error("failed to QueryTaskByID 2", sl.Err(err))
+		os.Exit(1)
+	}
+
+	task1 := &task.Task{
+		ID:          2,
+		Title:       "новое",
+		Description: "новое",
+		DueDate:     time.Now(),
+	}
+
+	err = storage.UpdateTaskRecord(*task1)
+
+	if err != nil {
+		log.Error("failed to UpdateTaskRecord 2", sl.Err(err))
+		os.Exit(1)
+	}
+
+	err = storage.DeleteTaskRecordByID(6)
+	if err != nil {
+		log.Error("failed to DeleteTaskRecordByID 1", sl.Err(err))
+		os.Exit(1)
+	}
 	// router := chi.NewRouter()
 
 	// router.Use(middleware.RequestID)

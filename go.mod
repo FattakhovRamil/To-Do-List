@@ -1,6 +1,6 @@
 module url-shorter
 
-go 1.21
+go 1.23
 
 require (
 	github.com/go-chi/chi v1.5.5
@@ -9,7 +9,6 @@ require (
 	github.com/go-playground/validator/v10 v10.22.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/lib/pq v1.10.9
-	go.starlark.net v0.0.0-20240725214946-42030a7cedce
 )
 
 require (

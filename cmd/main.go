@@ -1,17 +1,23 @@
 package main
 
 import (
-	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
-	"time"
 
 	//"time"
-	"url-shorter/internal/config"
-	"url-shorter/internal/lib/logger/sl"
-	"url-shorter/internal/storage/postgresql"
-	"url-shorter/models/task"
+	"to-do-list/internal/config"
+	"to-do-list/internal/lib/logger/sl"
+	"to-do-list/internal/storage/postgresql"
+
+	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
+
 	//"url-shorter/models/task"
+	createtaskhandler "to-do-list/internal/http-server/handlers/createTaskHandler"
+	// "to-do-list/internal/http-server/handlers/get"
+	// "to-do-list/internal/http-server/handlers/getusers"
+	tr "to-do-list/internal/storage"
 )
 
 const (
@@ -32,82 +38,37 @@ func main() {
 		log.Error("failed to init storage", sl.Err(err))
 		os.Exit(1)
 	}
-	taska := &task.Task{
-		Title:       "Любой заголовок3",
-		Description: "Описание задачи3",
-		DueDate:     time.Now(),
-	}
 
-	tas, err := storage.InsertTaskRecord(taska)
+	taskRepository := tr.New(storage)
 
-	println(tas.ID)
+	router := chi.NewRouter()
 
-	if err != nil {
-		log.Error("failed to InsertTaskRecord", sl.Err(err))
-		os.Exit(1)
-	}
+	router.Use(middleware.RequestID)
+	router.Use(middleware.Logger)
 
-	tasks, err := storage.QueryTasksAll()
+	router.Post("/tasks", createtaskhandler.New(log, taskRepository))
 
-	if err != nil {
-		log.Error("failed to SaveTask", sl.Err(err))
-		os.Exit(1)
-	}
+	router.Get("/tasks", get.New(log, storage))
+	router.Get("/tasks/{id}", get.New(log, storage)) 
+	router.Put("/tasks/{id}", get.New(log, storage))
+	router.Delete("/tasks/{id}", get.New(log, storage))
 
-	for _, v := range tasks {
-		fmt.Println(v)
-	}
-	taskk, err := storage.QueryTaskByID(2)
-
-	fmt.Println(*taskk)
-	if err != nil {
-		log.Error("failed to QueryTaskByID 2", sl.Err(err))
-		os.Exit(1)
-	}
-
-	task1 := &task.Task{
-		ID:          2,
-		Title:       "новое",
-		Description: "новое",
-		DueDate:     time.Now(),
-	}
-
-	err = storage.UpdateTaskRecord(*task1)
-
-	if err != nil {
-		log.Error("failed to UpdateTaskRecord 2", sl.Err(err))
-		os.Exit(1)
-	}
-
-	err = storage.DeleteTaskRecordByID(6)
-	if err != nil {
-		log.Error("failed to DeleteTaskRecordByID 1", sl.Err(err))
-		os.Exit(1)
-	}
-	// router := chi.NewRouter()
-
-	// router.Use(middleware.RequestID)
-	// router.Use(middleware.Logger)
-	// router.Use(mwLogger.New(log))
-
-	// router.Post("/", save.New(log, storage))
-	// router.Get("/", get.New(log, storage))
 	// router.Get("/users", getusers.New(log, storage))
-	// log.Info("server starting", slog.String("address", cfg.Address))
+	log.Info("server starting", slog.String("address", cfg.Address))
 
-	// srv := &http.Server{
-	// 	Addr:         cfg.Address,
-	// 	Handler:      router,
-	// 	ReadTimeout:  cfg.HTTPServer.Timeout,
-	// 	WriteTimeout: cfg.HTTPServer.Timeout,
-	// 	IdleTimeout:  cfg.IdleTimeout,
-	// }
+	srv := &http.Server{
+		Addr:         cfg.Address,
+		Handler:      router,
+		ReadTimeout:  cfg.HTTPServer.Timeout,
+		WriteTimeout: cfg.HTTPServer.Timeout,
+		IdleTimeout:  cfg.IdleTimeout,
+	}
 
-	// if err := srv.ListenAndServe(); err != nil {
-	// 	log.Error("failed to start server")
-	// }
+	if err := srv.ListenAndServe(); err != nil {
+		log.Error("failed to start server")
+	}
 
-	// log.Error("server stopped")
+	log.Error("server stopped")
 }
 
 func setupLogger(env string) *slog.Logger { // зависит от того, где запускается, разные уровни
@@ -124,3 +85,9 @@ func setupLogger(env string) *slog.Logger { // зависит от того, г�
 	}
 	return log
 }
+
+
+func (s *Server) GetTaskHandler(w http.ResponseWriter, r *http.Request) { ... }
+func (s *Server) CreateTaskHandler(w http.ResponseWriter, r *http.Request) { ... }
+func (s *Server) UpdateTaskHandler(w http.ResponseWriter, r *http.Request) { ... }
+func (s *Server) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) { ... }

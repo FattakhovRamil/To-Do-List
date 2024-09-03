@@ -3,16 +3,16 @@ package postgresql
 import (
 	"database/sql"
 	"fmt"
-	task "url-shorter/models/task"
+	task "to-do-list/models/task"
 
 	_ "github.com/lib/pq"
 )
 
-type Storage struct {
+type Database struct {
 	db *sql.DB // поле конекта к бд
 }
 
-func New(storagePath string) (*Storage, error) {
+func New(storagePath string) (*Database, error) {
 	// dbHost := os.Getenv("DB_HOST")
 	// dbPort := os.Getenv("DB_PORT")
 	// dbUser := os.Getenv("DB_USER")
@@ -50,13 +50,13 @@ func New(storagePath string) (*Storage, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return &Storage{
+	return &Database{
 		db: db,
 	}, nil
 
 }
 
-func (s *Storage) InsertTaskRecord(task *task.Task) (*task.Task, error) {
+func (s *Database) InsertTaskRecord(task *task.Task) (*task.Task, error) {
 	const op = "storage.postgresql.InsertTaskRecord"
 
 	query := "INSERT INTO tasks (title, description, due_date) VALUES ($1, $2, $3) RETURNING id"
@@ -67,7 +67,7 @@ func (s *Storage) InsertTaskRecord(task *task.Task) (*task.Task, error) {
 	return s.QueryTaskByID(task.ID)
 }
 
-func (s *Storage) QueryTaskByID(id int) (*task.Task, error) {
+func (s *Database) QueryTaskByID(id int) (*task.Task, error) {
 	const op = "storage.postgresql.QueryTaskByID"
 
 	task := &task.Task{}
@@ -86,7 +86,7 @@ func (s *Storage) QueryTaskByID(id int) (*task.Task, error) {
 
 }
 
-func (s *Storage) QueryTasksAll() ([]task.Task, error) {
+func (s *Database) QueryTasksAll() ([]task.Task, error) {
 	const op = "storage.postgresql.QueryTasksAll"
 
 	allTasks := []task.Task{}
@@ -116,11 +116,11 @@ func (s *Storage) QueryTasksAll() ([]task.Task, error) {
 
 }
 
-func (s *Storage) Close() error {
+func (s *Database) Close() error {
 	return s.db.Close()
 }
 
-func (s *Storage) UpdateTaskRecord(taskUpdate task.Task) error {
+func (s *Database) UpdateTaskRecord(taskUpdate task.Task) error {
 	const op = "storage.postgresql.UpdateTaskRecordByID"
 	query := `UPDATE tasks SET title=$1, description=$2, due_date=$3 WHERE id=$4`
 	result, err := s.db.Exec(query, taskUpdate.Title, taskUpdate.Description, taskUpdate.DueDate, taskUpdate.ID)
@@ -141,7 +141,7 @@ func (s *Storage) UpdateTaskRecord(taskUpdate task.Task) error {
 	return nil
 }
 
-func (s *Storage) DeleteTaskRecordByID(id int) error {
+func (s *Database) DeleteTaskRecordByID(id int) error {
 	const op = "storage.postgresql.DeleteTaskRecordByID"
 	query := `DELETE FROM tasks WHERE id=$1`
 	result, err := s.db.Exec(query, id)

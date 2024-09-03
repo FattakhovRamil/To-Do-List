@@ -1,6 +1,6 @@
-module url-shorter
+module to-do-list
 
-go 1.23
+go 1.22.3
 
 require (
 	github.com/go-chi/chi v1.5.5
